@@ -27,6 +27,8 @@ def build_dataset(data_path, label_path_file, n_mfcc):
 
     # ['URTI', 'Healthy' ...]
     diseases = labels['Label'].unique()
+    diseases = np.delete(diseases, np.argwhere(diseases == 'Asthma'))
+    diseases = np.delete(diseases, np.argwhere(diseases == 'LRTI'))
 
     files = glob(data_path + "*.wav")
 
@@ -49,9 +51,11 @@ def build_dataset(data_path, label_path_file, n_mfcc):
         # get associated label of value 'numb'
         label_str = np.array(labels.loc[labels['Number'] == int(numb)])[0, 1]
 
+        if (label_str == 'Asthma' or label_str == 'LRTI'):
+            continue
+
         y[idx] = np.where(diseases == label_str)[0]
         X.append(mfccs)
-        break
     return X, y, diseases
 
 def create_dirs(list_dir):
@@ -83,14 +87,15 @@ def save_dataset(path, X, y):
     '''
     data_file = path + "data"
     label_file = path + "labels"
-    f_data = open(data_file, "w")
-    f_labels = open(label_file, "w")
+    f_data = open(data_file, "a+")
+    f_labels = open(label_file, "a+")
 
     for idx, vec in enumerate(X):
         vec_str = mat_to_str(vec)
         f_data.write(vec_str)
+        f_data.write('\n')
 
-        label_str = str(y[idx])
+        label_str = str(int(y[idx]))
         if (idx != len(X) - 1):
             label_str += ','
         f_labels.write(label_str)
@@ -98,29 +103,39 @@ def save_dataset(path, X, y):
     f_data.close()
     f_labels.close()
 
-if __name__ == "__main__":
-    dataset_dir = '../respiratory-dataset/'
-    training_dir = '../respiratory-dataset/train/'
-    testing_dir = '../respiratory-dataset/test/'
+def save_labels_diseases(path, diseases):
+    '''
+    Save in a file labels associated to the disease
+    path: where to save
+    disease: list of the diseases
+    '''
+    f = open(path, "a+")
+    f.write("Label      Disease\n")
+    for idx, elm in enumerate(diseases):
+        f.write(str(idx) + "      ->  " + elm + "\n")
+    f.close()
 
-    data_train_path = '../audio_files/'
-    data_test_path = '../test/'
-    label_path_file = '../patient_diagnosis.csv'
+if __name__ == "__main__":
+    dataset_dir = '../../respiratory-dataset/'
+
+    data_path = '../../audio_files/'
+    label_path_file = '../../patient_diagnosis.csv'
 
     n_mfcc = 50
 
-    ## build the training dataset
+    ## build the dataset
     print("Building the dataset")
-    X_train, y_train, diseases = build_dataset(data_train_path, label_path_file, n_mfcc)
-
-    ## build the testing dataset
-    X_test, y_test, _ = build_dataset(data_test_path, label_path_file, n_mfcc)
+    X, y, diseases = build_dataset(data_path, label_path_file, n_mfcc)
 
     ## create directories
+    print()
     print("create directories")
-    create_dirs([dataset_dir, training_dir, testing_dir])
+    create_dirs([dataset_dir])
 
     ## save into files
+    print()
     print("save the dataset into files")
-    save_dataset(training_dir, X_train, y_train)
-    save_dataset(testing_dir, X_test, y_test)
+    save_dataset(dataset_dir, X, y)
+
+    ## save the labels associated to each disease
+    save_labels_diseases(dataset_dir + 'diseases', diseases)
