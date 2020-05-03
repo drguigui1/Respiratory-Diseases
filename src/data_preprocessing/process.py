@@ -40,10 +40,10 @@ def pitch_changing(x, rate):
     '''
     Changing the pitch of the audio
     '''
-    return lr.effects.pitch_shift(x, rate,3)
+    return lr.effects.pitch_shift(x, rate, 3)
 
 ## TO CHANGE
-def data_augmenting(x, label, rate, n_mfcc):
+def data_augmenting(x, label, rate, n_mfcc=30):
     '''
     Augment the number of data
     '''
@@ -70,8 +70,8 @@ def data_augmenting(x, label, rate, n_mfcc):
     # noise injection data augmenting
     x_noised_1 = noise_injection(x, 0.0003)
     x_noised_2 = noise_injection(x, 0.0006)
-    X_new.append(lr.feature.mfcc(y=x_noised_1, sr=rate, n_mfcc=n_mfcc))
-    X_new.append(lr.feature.mfcc(y=x_noised_2, sr=rate, n_mfcc=n_mfcc))
+    X_new.append(lr.feature.mfcc(y=x_noised_1, sr=rate, n_mfcc=n_mfcc).T)
+    X_new.append(lr.feature.mfcc(y=x_noised_2, sr=rate, n_mfcc=n_mfcc).T)
 
     # append real data
     X_new.append(lr.feature.mfcc(y=x, sr=rate, n_mfcc=n_mfcc).T)
@@ -94,6 +94,8 @@ def build_dataset(data_path, label_path_file, nb_list, n_mfcc=30):
     diseases = labels['Label'].unique()
     diseases = np.delete(diseases, np.argwhere(diseases == 'Asthma'))
     diseases = np.delete(diseases, np.argwhere(diseases == 'LRTI'))
+    diseases = np.delete(diseases, np.argwhere(diseases == 'Bronchiectasis'))
+    diseases = np.delete(diseases, np.argwhere(diseases == 'Bronchiolitis'))
 
     files = glob(data_path + "*.wav")
 
@@ -111,7 +113,8 @@ def build_dataset(data_path, label_path_file, nb_list, n_mfcc=30):
         # get associated label of value 'numb'
         label_str = np.array(labels.loc[labels['Number'] == int(numb)])[0, 1]
 
-        if (label_str == 'Asthma' or label_str == 'LRTI'):
+        if (label_str == 'Asthma' or label_str == 'LRTI' \
+            or label_str == 'Bronchiectasis' or label_str == 'Bronchiolitis'):
             continue
 
         # get the signal
@@ -121,10 +124,12 @@ def build_dataset(data_path, label_path_file, nb_list, n_mfcc=30):
 
         ## get data for training
         if nb_list[label] == 0: ## already all test data got
-            x, y = [signal], np.array([label])
+            y = np.array([label])
             ## augment data
             if (label != 2): # no need to augment COPD class
                 x, y = data_augmenting(signal, label, rate, n_mfcc=n_mfcc)
+            else:
+                x = [lr.feature.mfcc(y=signal, sr=rate, n_mfcc=n_mfcc).T]
             X_train += x
             y_train = np.concatenate((y_train, y))
         else: # get data for testing
@@ -201,7 +206,7 @@ if __name__ == "__main__":
     label_path_file = '../../patient_diagnosis.csv'
 
     ## build dataset
-    nb_list = [7, 10, 20, 5, 10, 5]
+    nb_list = [7, 10, 20, 10]
     print("Build the dataset")
     X_train, y_train, X_test, y_test, diseases = build_dataset(data_path, label_path_file, nb_list, n_mfcc=30)
 
